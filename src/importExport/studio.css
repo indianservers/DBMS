@@ -1,0 +1,216 @@
+.phase4-studio .phase4-small-button,
+.phase4-studio .phase4-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 9px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.phase4-studio .phase4-primary {
+  background: #1268e8;
+  color: #fff;
+  border-color: #1268e8;
+  font-weight: 700;
+}
+.phase4-studio .phase4-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.phase4-studio .phase4-wide {
+  width: 100%;
+  margin: 15px 0;
+}
+.phase4-studio .phase4-input,
+.phase4-export-table select {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  margin-top: 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.phase4-studio .config-card > label:not(.radio-line) {
+  display: block;
+  margin: 11px 0;
+}
+.phase4-studio .config-card .form-label {
+  margin-top: 13px;
+}
+.phase4-studio .phase4-validation {
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--surface-3);
+  color: var(--muted);
+  font-weight: 600;
+}
+.phase4-studio .phase4-validation.ready,
+.phase4-studio .phase4-validation.success {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.phase4-studio .phase4-validation.error,
+.phase4-studio .phase4-error {
+  background: #fff1ed;
+  color: #a83218;
+}
+.phase4-studio .phase4-error {
+  border: 1px solid #f1b8aa;
+  border-radius: 7px;
+  padding: 10px;
+  margin: 10px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.phase4-studio .progress-track {
+  background: var(--surface-3);
+  height: 8px;
+  overflow: hidden;
+}
+.phase4-studio .progress-track > div {
+  height: 100%;
+  background: linear-gradient(90deg, #1268e8, #45cbb0);
+  transition: width 0.3s;
+}
+.phase4-studio .phase4-empty {
+  color: var(--muted);
+  padding: 16px;
+}
+.phase4-studio .phase4-schema-list {
+  padding: 12px;
+  overflow: auto;
+  max-height: 220px;
+}
+.phase4-studio .phase4-schema-list > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border-bottom: 1px solid var(--border);
+}
+.phase4-studio .phase4-schema-list > div > code {
+  margin-left: auto;
+  color: var(--muted);
+}
+.phase4-studio .phase4-preview-grid {
+  overflow: auto;
+  max-height: 220px;
+}
+.phase4-studio .phase4-preview-grid table {
+  border-collapse: collapse;
+  width: 100%;
+  white-space: nowrap;
+}
+.phase4-studio .phase4-preview-grid td,
+.phase4-studio .phase4-preview-grid th {
+  border: 1px solid var(--border);
+  padding: 7px 9px;
+  text-align: left;
+}
+.phase4-studio .phase4-preview-grid th {
+  background: var(--surface-3);
+}
+.phase4-studio .phase4-preview-grid small {
+  display: block;
+  padding: 8px;
+  color: var(--muted);
+}
+.phase4-studio .phase4-export {
+  padding: 24px;
+  max-width: 950px;
+  margin: 20px auto;
+}
+.phase4-studio .phase4-export-head {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+.phase4-studio .phase4-export-head > svg {
+  color: var(--blue);
+}
+.phase4-studio .phase4-export-head h2 {
+  margin: 0;
+}
+.phase4-studio .phase4-export-head p {
+  margin: 5px 0;
+  color: var(--muted);
+}
+.phase4-studio .phase4-export-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+.phase4-studio .phase4-export-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 15px;
+  cursor: pointer;
+}
+.phase4-studio .phase4-export-options label.selected {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+.phase4-studio .phase4-export-options label input {
+  align-self: flex-start;
+}
+.phase4-studio .phase4-export-options label span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.phase4-studio .phase4-export-table {
+  display: block;
+  max-width: 350px;
+  margin: 15px 0;
+}
+.phase4-studio .phase4-history {
+  margin: 20px 0;
+  padding: 15px;
+}
+.phase4-studio .phase4-history > div {
+  display: grid;
+  grid-template-columns: 150px 1fr 1fr 80px;
+  gap: 12px;
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+.phase4-studio .phase4-history em {
+  color: var(--green);
+}
+@media (max-width: 850px) {
+  .phase4-studio .phase4-export-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .phase4-studio .phase4-history > div {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 1100px) {
+  .phase4-studio .import-cards {
+    grid-template-columns: 1.16fr 0.98fr 0.86fr;
+  }
+  .phase4-studio .validate-card {
+    grid-column: auto;
+    display: block;
+  }
+}
+.phase4-studio .config-card > label.radio-line:first-of-type {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0;
+  color: var(--text);
+}
