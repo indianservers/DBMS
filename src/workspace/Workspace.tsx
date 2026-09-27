@@ -16,6 +16,8 @@ import type { Database } from "../data";
 import { downloadText, executeSql, quoteId } from "./database";
 import type { SqlResult } from "./database";
 import { buildDiagramSvg } from "./diagram";
+import { primaryKeyPredicate } from "./rowMutation";
+import { readStoredJson, readStoredText, writeStoredText } from "../storage";
 import "./workspace.css";
 
 type Mode = "query" | "table" | "schema";
@@ -31,7 +33,13 @@ type Props = {
   onDatabaseChange: () => void;
   notify: (message: string) => void;
 };
-type HistoryItem = { sql: string; at: string; duration: number; rows: number };
+type HistoryItem = {
+  sql: string;
+  at: string;
+  duration: number;
+  rows: number;
+  database?: string;
+};
 type SchemaRow = { name: string; type: string; sql: string };
 type LiveColumn = {
   name: string;
@@ -46,13 +54,6 @@ const empty: SqlResult = {
   resultSets: 0,
   affected: 0,
   elapsed: 0,
-};
-const readJson = <T,>(key: string, fallback: T): T => {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "") as T;
-  } catch {
-    return fallback;
-  }
 };
 const fmt = (value: string | number | null) =>
   value === null ? <em className="ws-null">NULL</em> : String(value);
@@ -71,9 +72,7 @@ export default function Workspace({
   notify,
 }: Props) {
   const draftKey = `dbms-studio-draft-${tabId}`;
-  const [sql, setSql] = useState(
-    () => localStorage.getItem(draftKey) ?? initialSql,
-  );
+  const [sql, setSql] = useState(() => readStoredText(draftKey) ?? initialSql);
   const [result, setResult] = useState<SqlResult>(empty);
   const [explainResult, setExplainResult] = useState<SqlResult>(empty);
   const [error, setError] = useState("");
@@ -82,11 +81,23 @@ export default function Workspace({
     "Results" | "SQL" | "Explain" | "Chart" | "History"
   >("Results");
   const [history, setHistory] = useState<HistoryItem[]>(() =>
-    readJson("dbms-studio-query-history", []),
+    readStoredJson("dbms-studio-query-history", []),
   );
-  const [saved, setSaved] = useState<{ name: string; sql: string }[]>(() =>
-    readJson("dbms-studio-saved-queries", []),
+  const visibleHistory = history.filter(
+    (item) =>
+      item.database === database.name ||
+      (!item.database && database.name === "RetailDB"),
   );
+  const [saved, setSaved] = useState<
+    { name: string; sql: string; database?: string }[]
+  >(() => readStoredJson("dbms-studio-saved-queries", []));
+  const visibleSaved = saved
+    .map((item, index) => ({ item, index }))
+    .filter(
+      ({ item }) =>
+        item.database === database.name ||
+        (!item.database && database.name === "RetailDB"),
+    );
   const [gridPage, setGridPage] = useState(0);
   const [sort, setSort] = useState<{ column: number; asc: boolean } | null>(
     null,
@@ -135,20 +146,20 @@ export default function Workspace({
   const lastRun = useRef(runSignal);
 
   useEffect(() => {
-    localStorage.setItem(draftKey, sql);
+    writeStoredText(draftKey, sql);
     onSqlChange(sql);
   }, [draftKey, sql, onSqlChange]);
   useEffect(() => {
-    setSql(localStorage.getItem(draftKey) ?? initialSql);
+    setSql(readStoredText(draftKey) ?? initialSql);
   }, [draftKey, initialSql]);
   useEffect(() => {
-    localStorage.setItem(
+    writeStoredText(
       "dbms-studio-query-history",
       JSON.stringify(history.slice(0, 100)),
     );
   }, [history]);
   useEffect(() => {
-    localStorage.setItem("dbms-studio-saved-queries", JSON.stringify(saved));
+    writeStoredText("dbms-studio-saved-queries", JSON.stringify(saved));
   }, [saved]);
 
   const run = useCallback(
@@ -169,6 +180,7 @@ export default function Workspace({
             [
               {
                 sql: statement,
+                database: database.name,
                 at: new Date().toLocaleString(),
                 duration: answer.elapsed,
                 rows: answer.rows.length,
@@ -381,7 +393,7 @@ export default function Workspace({
       .prompt("Name this query", `Query ${saved.length + 1}`)
       ?.trim();
     if (!name) return;
-    setSaved((items) => [{ name, sql }, ...items]);
+    setSaved((items) => [{ name, sql, database: database.name }, ...items]);
     notify(`Saved “${name}” locally.`);
   }
   function exportRows(format: "csv" | "json") {
@@ -428,34 +440,37 @@ export default function Workspace({
     }
   }
   async function deleteRow() {
-    const key = liveColumns[activeTable]?.find(
-      (column) => column.primary,
-    )?.name;
     const index = selectedRow;
-    if (index === null || !key) {
+    const row = index === null ? undefined : tableRows.rows[index];
+    const where = row
+      ? primaryKeyPredicate(
+          liveColumns[activeTable] ?? [],
+          tableRows.columns,
+          row,
+        )
+      : null;
+    if (!where) {
       notify("Select a row with a primary key first.");
       return;
     }
-    const value = tableRows.rows[index]?.[tableRows.columns.indexOf(key)];
-    const preview = `DELETE FROM ${quoteId(activeTable)} WHERE ${quoteId(key)} = ${typeof value === "number" ? value : sqlLiteral(String(value))};`;
+    const preview = `DELETE FROM ${quoteId(activeTable)} WHERE ${where};`;
     if (
       !window.confirm(
         `Delete this row from your local practice database?\n\n${preview}`,
       )
     )
       return;
-    await run(preview, false);
-    setSchemaVersion((v) => v + 1);
-    setSelectedRow(null);
+    if (await run(preview, false)) setSelectedRow(null);
   }
   async function editCell(rowIndex: number, columnIndex: number) {
-    const key = liveColumns[activeTable]?.find(
-      (column) => column.primary,
-    )?.name;
     const column = tableRows.columns[columnIndex];
     const row = tableRows.rows[rowIndex];
-    if (!key || !column || !row || column === key) {
-      notify("Primary key cells cannot be edited here.");
+    const keys = liveColumns[activeTable]?.filter((item) => item.primary) ?? [];
+    const where = row
+      ? primaryKeyPredicate(keys, tableRows.columns, row)
+      : null;
+    if (!column || !where || keys.some((key) => key.name === column)) {
+      notify("Select a non-key cell in a table with a primary key.");
       return;
     }
     const current = row[columnIndex];
@@ -464,17 +479,15 @@ export default function Workspace({
       current === null ? "NULL" : String(current),
     );
     if (next === null) return;
-    const keyValue = row[tableRows.columns.indexOf(key)];
     const value = next.toUpperCase() === "NULL" ? "NULL" : sqlLiteral(next);
-    const statement = `UPDATE ${quoteId(activeTable)} SET ${quoteId(column)} = ${value} WHERE ${quoteId(key)} = ${typeof keyValue === "number" ? keyValue : sqlLiteral(String(keyValue))};`;
+    const statement = `UPDATE ${quoteId(activeTable)} SET ${quoteId(column)} = ${value} WHERE ${where};`;
     if (
       !window.confirm(
         `Apply this change to your local practice database?\n\n${statement}`,
       )
     )
       return;
-    const changed = await run(statement, false);
-    if (changed) setSchemaVersion((version) => version + 1);
+    await run(statement, false);
   }
   function addTable() {
     const name = window.prompt("New table name")?.trim();
@@ -948,7 +961,7 @@ export default function Workspace({
             {resultTab === "Chart" && <Chart result={result} />}
             {resultTab === "History" && (
               <div className="ws-history">
-                {history.map((item, index) => (
+                {visibleHistory.map((item, index) => (
                   <button
                     key={index}
                     onClick={() => {
@@ -960,16 +973,16 @@ export default function Workspace({
                     <code>{item.sql.slice(0, 180)}</code>
                   </button>
                 ))}
-                {!history.length && (
+                {!visibleHistory.length && (
                   <div className="ws-empty">Executed queries appear here.</div>
                 )}
               </div>
             )}
           </div>
-          {saved.length > 0 && (
+          {visibleSaved.length > 0 && (
             <div className="ws-saved">
               <strong>Saved queries</strong>
-              {saved.map((item, index) => (
+              {visibleSaved.map(({ item, index }) => (
                 <div key={index}>
                   <button onClick={() => setSql(item.sql)}>{item.name}</button>
                   <button

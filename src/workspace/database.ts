@@ -9,6 +9,18 @@ export type SqlResult = {
 const DB_NAME = "dbms-studio-local-databases";
 let queue = Promise.resolve();
 
+async function withDatabaseLock<T>(
+  name: string,
+  action: () => Promise<T>,
+): Promise<T> {
+  if (navigator.locks)
+    return await navigator.locks.request<Promise<T>>(
+      `dbms-studio:${name}`,
+      action,
+    );
+  return action();
+}
+
 function openStore(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, 1);
@@ -42,6 +54,10 @@ async function writeBytes(name: string, bytes: Uint8Array): Promise<void> {
       db.close();
       reject(tx.error);
     };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error("Database write was aborted."));
+    };
   });
 }
 
@@ -70,7 +86,9 @@ export function replaceDatabaseBytes(
   name: string,
   bytes: Uint8Array,
 ): Promise<void> {
-  const run = queue.then(() => writeBytes(name, bytes));
+  const run = queue.then(() =>
+    withDatabaseLock(name, () => writeBytes(name, bytes)),
+  );
   queue = run.then(
     () => undefined,
     () => undefined,
@@ -153,7 +171,7 @@ async function executeDirect(
         return;
       }
       try {
-        await writeBytes(database, event.data.bytes!);
+        if (event.data.bytes) await writeBytes(database, event.data.bytes);
         resolve(event.data);
       } catch (error) {
         reject(error);
@@ -173,7 +191,9 @@ export function executeSql(
   sql: string,
   timeoutMs = 10_000,
 ): Promise<SqlResult> {
-  const run = queue.then(() => executeDirect(database, sql, timeoutMs));
+  const run = queue.then(() =>
+    withDatabaseLock(database, () => executeDirect(database, sql, timeoutMs)),
+  );
   queue = run.then(
     () => undefined,
     () => undefined,

@@ -32,6 +32,9 @@ import { allExercises, categories, lessons } from "./curriculum";
 import type { Level, VisualKind } from "./curriculum";
 import { databaseGuide } from "./seed";
 import { evaluateSql, runSql } from "./sql";
+import { writeStoredText } from "../storage";
+import EngineeringLab from "./EngineeringLab";
+import { coreVisuals } from "./coreVisuals";
 import type { QueryResult } from "./sql";
 import "./learning.css";
 
@@ -151,7 +154,7 @@ export default function LearningCenter() {
     .sort((a, b) => b.wrong - a.wrong)
     .slice(0, 3);
   useEffect(() => {
-    localStorage.setItem(progressKey, JSON.stringify(progress));
+    writeStoredText(progressKey, JSON.stringify(progress));
   }, [progress]);
   useEffect(() => {
     setExampleSql(lesson.exampleSql);
@@ -687,7 +690,24 @@ export default function LearningCenter() {
                     <h2>Understand the idea</h2>
                   </div>
                 </div>
-                <p className="lesson-explanation">{lesson.explanation}</p>
+                {lesson.deepDive ? (
+                  <div className="engineering-theory">
+                    {lesson.deepDive.sections.map((section, index) => (
+                      <div
+                        className="engineering-theory-section"
+                        key={section.title}
+                      >
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <div>
+                          <h3>{section.title}</h3>
+                          <p>{section.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="lesson-explanation">{lesson.explanation}</p>
+                )}
                 <div className="key-idea">
                   <Lightbulb size={18} />
                   <div>
@@ -695,15 +715,77 @@ export default function LearningCenter() {
                     <span>{lesson.keyIdea}</span>
                   </div>
                 </div>
+                {lesson.workedExample && (
+                  <div className="worked-example">
+                    <span className="worked-example-label">
+                      WORKED REASONING
+                    </span>
+                    <h3>{lesson.workedExample.question}</h3>
+                    <ol>
+                      {lesson.workedExample.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                    <p>{lesson.workedExample.takeaway}</p>
+                  </div>
+                )}
               </section>
-              <ConceptLab kind={lesson.visual} />
+              {lesson.mastery && (
+                <section className="lesson-card mastery-card">
+                  <div className="lesson-card-heading">
+                    <span className="section-icon orange">
+                      <GraduationCap size={18} />
+                    </span>
+                    <div>
+                      <small>03 / GO DEEPER</small>
+                      <h2>Reason beyond the basics</h2>
+                    </div>
+                  </div>
+                  <div className="engineering-theory">
+                    {lesson.mastery.sections.map((section, index) => (
+                      <div
+                        className="engineering-theory-section"
+                        key={section.title}
+                      >
+                        <span>{String(index + 4).padStart(2, "0")}</span>
+                        <div>
+                          <h3>{section.title}</h3>
+                          <p>{section.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mastery-misconception">
+                    <strong>Common misconception</strong>
+                    <p>“{lesson.mastery.misconception.claim}”</p>
+                    <span>{lesson.mastery.misconception.correction}</span>
+                  </div>
+                  <div className="mastery-challenge">
+                    <strong>Exam-style self-check</strong>
+                    <p>{lesson.mastery.challenge.question}</p>
+                    <details key={lesson.id}>
+                      <summary>Reveal reasoned answer</summary>
+                      <p>{lesson.mastery.challenge.answer}</p>
+                    </details>
+                  </div>
+                </section>
+              )}
+              {lesson.deepDive?.lab ? (
+                <EngineeringLab key={lesson.id} lab={lesson.deepDive.lab} />
+              ) : (
+                <ConceptLab
+                  key={lesson.id}
+                  kind={lesson.visual}
+                  lessonId={lesson.id}
+                />
+              )}
               <section className="lesson-card">
                 <div className="lesson-card-heading">
                   <span className="section-icon green">
                     <TerminalSquare size={18} />
                   </span>
                   <div>
-                    <small>04 / TRY IT LIVE</small>
+                    <small>05 / TRY IT LIVE</small>
                     <h2>Explore a working example</h2>
                   </div>
                 </div>
@@ -749,7 +831,7 @@ export default function LearningCenter() {
                     <ListChecks size={18} />
                   </span>
                   <div>
-                    <small>05 / CHECK YOUR UNDERSTANDING</small>
+                    <small>06 / CHECK YOUR UNDERSTANDING</small>
                     <h2>Practice exercise {exerciseIndex + 1} of 2</h2>
                   </div>
                 </div>
@@ -1182,30 +1264,36 @@ const visualText: Record<
     nodes: ["filter", "group", "sort"],
   },
 };
-function ConceptLab({ kind }: { kind: VisualKind }) {
+function ConceptLab({
+  kind,
+  lessonId,
+}: {
+  kind: VisualKind;
+  lessonId: string;
+}) {
   const [step, setStep] = useState(0);
   const [alternate, setAlternate] = useState(false);
-  const v = visualText[kind];
+  const v = coreVisuals[lessonId] ?? visualText[kind];
   const nodes =
-    kind === "join"
+    lessonId === "joins"
       ? alternate
         ? (["6 customers", "LEFT JOIN", "5 orders + 1 NULL"] as const)
         : (["6 customers", "INNER JOIN", "5 matched orders"] as const)
-      : kind === "distributed"
+      : lessonId === "distributed"
         ? alternate
           ? (["shard A: IDs 1–3", "partition key", "shard B: IDs 4–6"] as const)
           : (["primary: IDs 1–6", "copy changes", "replica: IDs 1–6"] as const)
         : v.nodes;
   const caption =
-    kind === "join" && alternate
+    lessonId === "joins" && alternate
       ? "A left join also returns customers who have no order; their order fields are NULL."
-      : kind === "distributed" && alternate
+      : lessonId === "distributed" && alternate
         ? "Each shard stores a different range of customer IDs."
         : v.steps[step];
   useEffect(() => {
     setStep(0);
     setAlternate(false);
-  }, [kind]);
+  }, [kind, lessonId]);
   return (
     <section className="lesson-card concept-lab">
       <div className="lesson-card-heading">
@@ -1213,7 +1301,7 @@ function ConceptLab({ kind }: { kind: VisualKind }) {
           <Sparkles size={18} />
         </span>
         <div>
-          <small>03 / VISUAL EXPLORER</small>
+          <small>04 / VISUAL EXPLORER</small>
           <h2>{v.title}</h2>
         </div>
       </div>
@@ -1223,9 +1311,9 @@ function ConceptLab({ kind }: { kind: VisualKind }) {
           {nodes.map((node, i) => (
             <div key={node} className={step >= i ? "lit" : ""}>
               <span>
-                {kind === "transaction" && alternate && i === 0
+                {lessonId === "transactions-acid" && alternate && i === 0
                   ? "A: 400"
-                  : kind === "transaction" && alternate && i === 2
+                  : lessonId === "transactions-acid" && alternate && i === 2
                     ? "B: 300"
                     : node}
               </span>
@@ -1264,7 +1352,7 @@ function ConceptLab({ kind }: { kind: VisualKind }) {
             <RotateCcw size={15} />
           </button>
         </div>
-        {kind === "transaction" && (
+        {lessonId === "transactions-acid" && (
           <button
             className="scenario-toggle"
             onClick={() => setAlternate(!alternate)}
@@ -1272,7 +1360,7 @@ function ConceptLab({ kind }: { kind: VisualKind }) {
             {alternate ? "Show initial balances" : "Commit transfer"}
           </button>
         )}
-        {kind === "join" && (
+        {lessonId === "joins" && (
           <button
             className="scenario-toggle"
             onClick={() => setAlternate(!alternate)}
@@ -1280,7 +1368,7 @@ function ConceptLab({ kind }: { kind: VisualKind }) {
             {alternate ? "Show inner join" : "Show left join"}
           </button>
         )}
-        {kind === "distributed" && (
+        {lessonId === "distributed" && (
           <button
             className="scenario-toggle"
             onClick={() => setAlternate(!alternate)}

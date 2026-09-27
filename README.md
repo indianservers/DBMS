@@ -37,8 +37,10 @@ The Overview now reflects the active local SQLite database. The SQL, table and s
 
 ## What works in Phase 2
 
-- 24 structured lessons from database fundamentals through SQL, design, reliability, security, distributed systems, and MongoDB concepts
-- 48 exercises spanning beginner, intermediate, and advanced levels
+- 39 structured lessons, including a 15-chapter engineering DBMS track covering architecture, EER, algebra, dependencies, normalization proofs, concurrency, storage, indexing, query costs, and recovery
+- 78 exercises spanning beginner, intermediate, and advanced levels
+- Every lesson includes five theory sections, a worked reasoning example, a misconception correction, an exam-style self-check with a reasoned answer, and a topic-specific visual trace or interactive lab
+- Browser-only interactive engineering labs for relational algebra, attribute closure, serializability graphs, B+ tree search and split, page I/O, query costs, and worked design scenarios
 - Interactive step-through concept diagrams, hints, explanations, and solution walkthroughs
 - A small, real SQLite practice database running through WebAssembly in a browser Web Worker
 - SQL exercises checked by executing the learner's query and comparing its result to a reference result; row order is checked when the exercise asks for sorting

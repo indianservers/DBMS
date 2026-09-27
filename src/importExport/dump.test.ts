@@ -33,4 +33,24 @@ describe("SQL database export", () => {
     source.close();
     restored.close();
   });
+
+  it("restores generated columns and AUTOINCREMENT positions", async () => {
+    const SQL = await initSqlJs();
+    const source = new SQL.Database();
+    source.exec(
+      "CREATE TABLE measures (id INTEGER PRIMARY KEY AUTOINCREMENT, amount INTEGER, doubled INTEGER GENERATED ALWAYS AS (amount * 2) STORED); INSERT INTO measures(amount) VALUES (4), (5); DELETE FROM measures WHERE id = 2;",
+    );
+    const restored = new SQL.Database();
+    restored.exec(dumpDatabase(source));
+    expect(
+      restored.exec("SELECT id, amount, doubled FROM measures")[0].values,
+    ).toEqual([[1, 4, 8]]);
+    restored.exec("INSERT INTO measures(amount) VALUES (7)");
+    expect(
+      restored.exec("SELECT id, doubled FROM measures WHERE amount = 7")[0]
+        .values,
+    ).toEqual([[3, 14]]);
+    source.close();
+    restored.close();
+  });
 });

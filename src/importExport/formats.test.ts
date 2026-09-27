@@ -28,6 +28,22 @@ describe("local file formats", () => {
     expect(parsed.rows[0]).toEqual(["abc", '{"x":1}']);
   });
 
+  it("preserves JSON values when display headers are normalized", () => {
+    const parsed = parseJsonDocuments(
+      '[{" Name ":"Ada","name":"Lovelace","NAME":"Mathematician"}]',
+    );
+    expect(parsed.columns).toEqual(["Name", "name_2", "NAME_3"]);
+    expect(parsed.rows).toEqual([["Ada", "Lovelace", "Mathematician"]]);
+  });
+
+  it("keeps all-empty CSV records but skips actual blank lines", () => {
+    const parsed = parseDelimited('first,second\n,\n\n"",value\n');
+    expect(parsed.rows).toEqual([
+      [null, null],
+      [null, "value"],
+    ]);
+  });
+
   it("builds executable and escaped SQLite imports", async () => {
     const SQL = await initSqlJs();
     const db = new SQL.Database();

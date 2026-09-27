@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import {
   Activity,
@@ -53,14 +53,21 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { databases, sampleRows, sampleSql } from "./data";
 import type { Column, Database as DbType, TabKind, WorkspaceTab } from "./data";
-import LearningCenter from "./learning/LearningCenter";
 import Workspace from "./workspace/Workspace";
 import { executeSql, listLocalDatabases } from "./workspace/database";
 import ImportExportStudio from "./importExport/ImportExportStudio";
 import Dashboard from "./dashboard/Dashboard";
+import { writeStoredText } from "./storage";
 
-type RecentQuery = { sql: string; at: string; rows: number };
-function getRecentQueries(): RecentQuery[] {
+const LearningCenter = lazy(() => import("./learning/LearningCenter"));
+
+type RecentQuery = {
+  sql: string;
+  at: string;
+  rows: number;
+  database?: string;
+};
+function getRecentQueries(databaseName: string): RecentQuery[] {
   try {
     const value: unknown = JSON.parse(
       localStorage.getItem("dbms-studio-query-history") ?? "[]",
@@ -70,7 +77,9 @@ function getRecentQueries(): RecentQuery[] {
           (item): item is RecentQuery =>
             typeof item?.sql === "string" &&
             typeof item?.at === "string" &&
-            typeof item?.rows === "number",
+            typeof item?.rows === "number" &&
+            (item.database === databaseName ||
+              (!item.database && databaseName === "RetailDB")),
         )
       : [];
   } catch {
@@ -93,9 +102,16 @@ type AppState = {
 };
 const initialTabs: WorkspaceTab[] = [
   { id: "home", kind: "home", title: "Overview" },
-  { id: "query-1", kind: "query", title: "Query 1" },
-  { id: "schema", kind: "schema", title: "Schema Designer" },
+  { id: "query-1", kind: "query", title: "Query 1", database: "RetailDB" },
+  {
+    id: "schema",
+    kind: "schema",
+    title: "Schema Designer",
+    database: "RetailDB",
+  },
 ];
+const isDatabaseTab = (kind: TabKind) =>
+  kind === "query" || kind === "schema" || kind === "table";
 const defaults: AppState = {
   theme: "light",
   database: "RetailDB",
@@ -122,6 +138,11 @@ function loadState(): AppState {
       !state.tabs.some((t) => t.id === state.activeTab)
     )
       return defaults;
+    state.tabs = state.tabs.map((tab) =>
+      isDatabaseTab(tab.kind)
+        ? { ...tab, database: tab.database || state.database }
+        : tab,
+    );
     if (window.matchMedia("(max-width: 1100px)").matches)
       return { ...state, leftOpen: false, rightOpen: false };
     return state;
@@ -267,7 +288,7 @@ export default function App() {
   }, [schemaRevision]);
   const active =
     state.tabs.find((t) => t.id === state.activeTab) ?? state.tabs[0];
-  const recentQueries = getRecentQueries().slice(0, 4);
+  const recentQueries = getRecentQueries(database.name).slice(0, 4);
   const selectedTableName = state.selected.startsWith("table:")
     ? state.selected.slice(6)
     : (active.table ?? "orders");
@@ -312,13 +333,21 @@ export default function App() {
     (c) => c.name === selectedColumn,
   ) ??
     selectedTable.columns[0] ?? { name: "", type: "TEXT" };
+  const explorerObjects = liveObjectsFor === database.name ? liveObjects : [];
+  const explorerTables = useMemo(
+    () =>
+      liveObjectsFor === database.name
+        ? liveObjects.filter((item) => item.type === "table")
+        : database.tables,
+    [database, liveObjects, liveObjectsFor],
+  );
   const nextId = useRef(2);
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    writeStoredText(storageKey, JSON.stringify(state));
     document.documentElement.dataset.theme = state.theme;
   }, [state]);
   useEffect(() => {
-    localStorage.setItem("dbms-studio-sql-draft", queryText);
+    writeStoredText("dbms-studio-sql-draft", queryText);
   }, [queryText]);
   useEffect(() => {
     if (!toast) return;
@@ -332,17 +361,30 @@ export default function App() {
     const reusable = state.tabs.find(
       (t) =>
         t.kind === kind &&
+        (!isDatabaseTab(kind) || t.database === state.database) &&
         (kind !== "table" || t.table === table) &&
         (kind !== "query" || t.title === title),
     );
     if (reusable) {
-      update({ activeTab: reusable.id });
+      update({
+        activeTab: reusable.id,
+        selected: table ? `table:${table}` : state.selected,
+      });
       return;
     }
     const id = `${kind}-${Date.now()}-${nextId.current++}`;
     setState((s) => ({
       ...s,
-      tabs: [...s.tabs, { id, kind, title, table }],
+      tabs: [
+        ...s.tabs,
+        {
+          id,
+          kind,
+          title,
+          table,
+          database: isDatabaseTab(kind) ? s.database : undefined,
+        },
+      ],
       activeTab: id,
       selected: table ? `table:${table}` : s.selected,
     }));
@@ -353,13 +395,16 @@ export default function App() {
       if (s.tabs.length === 1) return s;
       const index = s.tabs.findIndex((t) => t.id === id);
       const tabs = s.tabs.filter((t) => t.id !== id);
+      const nextTab =
+        s.activeTab === id
+          ? (tabs[Math.max(0, index - 1)] ?? tabs[0])
+          : s.tabs.find((tab) => tab.id === s.activeTab);
       return {
         ...s,
         tabs,
-        activeTab:
-          s.activeTab === id
-            ? (tabs[Math.max(0, index - 1)]?.id ?? tabs[0].id)
-            : s.activeTab,
+        activeTab: nextTab?.id ?? tabs[0].id,
+        database: nextTab?.database ?? s.database,
+        selected: nextTab?.table ? `table:${nextTab.table}` : s.selected,
       };
     });
   }
@@ -383,7 +428,7 @@ export default function App() {
   }
   function openPreparedSql(statement: string) {
     const id = `query-${Date.now()}-${nextId.current++}`;
-    localStorage.setItem(`dbms-studio-draft-${id}`, statement);
+    writeStoredText(`dbms-studio-draft-${id}`, statement);
     setQueryText(statement);
     setState((current) => ({
       ...current,
@@ -392,6 +437,7 @@ export default function App() {
         {
           id,
           kind: "query",
+          database: current.database,
           title: `Query ${current.tabs.filter((tab) => tab.kind === "query").length + 1}`,
         },
       ],
@@ -492,7 +538,7 @@ export default function App() {
   const commands = useMemo(
     () =>
       [
-        ...database.tables.map((t) => ({
+        ...explorerTables.map((t) => ({
           label: t.name,
           detail: `Table · ${database.name}`,
           icon: Table2,
@@ -532,7 +578,7 @@ export default function App() {
       ].filter((c) =>
         (c.label + " " + c.detail).toLowerCase().includes(search.toLowerCase()),
       ),
-    [database, search, state.theme, state.tabs],
+    [database, explorerTables, search, state.theme, state.tabs],
   );
   async function chooseFile(chosen: File | null) {
     if (!chosen) return;
@@ -777,18 +823,12 @@ export default function App() {
               <TreeGroup
                 title="Tables"
                 icon={Table2}
-                count={
-                  liveObjects.filter((item) => item.type === "table").length ||
-                  database.tables.length
-                }
+                count={explorerTables.length}
                 open={!!expanded.Tables}
                 toggle={() => setExpanded((x) => ({ ...x, Tables: !x.Tables }))}
               />
               {expanded.Tables &&
-                (liveObjects.filter((item) => item.type === "table").length
-                  ? liveObjects.filter((item) => item.type === "table")
-                  : database.tables
-                )
+                explorerTables
                   .filter((table) =>
                     table.name.includes(explorerSearch.toLowerCase()),
                   )
@@ -821,7 +861,7 @@ export default function App() {
                       : name === "Indexes"
                         ? "index"
                         : "trigger";
-                  const objects = liveObjects.filter(
+                  const objects = explorerObjects.filter(
                     (item) => item.type === kind,
                   );
                   return (
@@ -863,7 +903,7 @@ export default function App() {
                 <span>Query history</span>
               </button>
               {explorerSearch &&
-                !database.tables.some((t) =>
+                !explorerTables.some((t) =>
                   t.name.includes(explorerSearch.toLowerCase()),
                 ) && <p className="empty-filter">No matching tables</p>}
             </div>
@@ -938,6 +978,7 @@ export default function App() {
                   onClick={() =>
                     update({
                       activeTab: tab.id,
+                      database: tab.database ?? state.database,
                       selected: tab.table
                         ? `table:${tab.table}`
                         : state.selected,
@@ -1037,7 +1078,11 @@ export default function App() {
               notify={notify}
             />
           )}
-          {active.kind === "learn" && <LearningCenter />}
+          {active.kind === "learn" && (
+            <Suspense fallback={<div role="status">Loading lessons…</div>}>
+              <LearningCenter />
+            </Suspense>
+          )}
           {active.kind === "import" && (
             <ImportExportStudio
               database={database}

@@ -27,6 +27,7 @@ import {
 import { parseLocalFile } from "./file";
 import type { ParsedFile } from "./file";
 import { makeTableImportSql, toCsv } from "./formats";
+import { writeStoredText } from "../storage";
 import "./studio.css";
 
 type Prepared =
@@ -103,7 +104,7 @@ export default function ImportExportStudio({
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 40)));
+    writeStoredText(HISTORY_KEY, JSON.stringify(history.slice(0, 40)));
   }, [history]);
   useEffect(() => {
     if (!file) {

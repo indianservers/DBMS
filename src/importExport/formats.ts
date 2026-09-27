@@ -24,7 +24,8 @@ export function parseDelimited(text: string, delimiter = ","): ParsedTable {
   const records: string[][] = [];
   let row: string[] = [],
     field = "",
-    quoted = false;
+    quoted = false,
+    quotedField = false;
   for (let i = 0; i < source.length; i++) {
     const ch = source[i];
     if (quoted) {
@@ -33,21 +34,26 @@ export function parseDelimited(text: string, delimiter = ","): ParsedTable {
         i++;
       } else if (ch === '"') quoted = false;
       else field += ch;
-    } else if (ch === '"' && field === "") quoted = true;
-    else if (ch === delimiter) {
+    } else if (ch === '"' && field === "") {
+      quoted = true;
+      quotedField = true;
+    } else if (ch === delimiter) {
       row.push(field);
       field = "";
     } else if (ch === "\n" || ch === "\r") {
       if (ch === "\r" && source[i + 1] === "\n") i++;
       row.push(field);
       field = "";
-      if (row.some((cell) => cell !== "")) records.push(row);
+      if (row.length > 1 || quotedField || row.some((cell) => cell !== ""))
+        records.push(row);
       row = [];
+      quotedField = false;
     } else field += ch;
   }
   if (quoted) throw new Error("Unclosed quoted field in delimited file.");
   row.push(field);
-  if (row.some((cell) => cell !== "")) records.push(row);
+  if (row.length > 1 || quotedField || row.some((cell) => cell !== ""))
+    records.push(row);
   if (!records.length) throw new Error("The file has no header row.");
   const columns = uniqueHeaders(records[0]);
   const rawRows = records.slice(1).map((record, index) => {
@@ -110,18 +116,15 @@ export function parseJsonDocuments(text: string): ParsedTable {
     )
   )
     throw new Error("JSON import expects an object or an array of objects.");
-  const columns = uniqueHeaders(
-    Array.from(
-      new Set(
-        documents.flatMap((item) =>
-          Object.keys(item as Record<string, unknown>),
-        ),
-      ),
+  const sourceKeys = Array.from(
+    new Set(
+      documents.flatMap((item) => Object.keys(item as Record<string, unknown>)),
     ),
   );
+  const columns = uniqueHeaders(sourceKeys);
   const rows = documents.map((item) =>
-    columns.map((column) =>
-      normalizeDocumentValue((item as Record<string, unknown>)[column]),
+    sourceKeys.map((key) =>
+      normalizeDocumentValue((item as Record<string, unknown>)[key]),
     ),
   );
   return { columns, rows, types: inferTypes(rows, columns.length) };

@@ -21,12 +21,31 @@ export function dumpDatabase(database: Database): string {
   for (const [, , ddl] of tables) lines.push(`${ddl};`);
   for (const [name] of tables) {
     const tableName = String(name);
-    const result = database.exec(`SELECT * FROM ${quote(tableName)}`)[0];
+    const columns =
+      database
+        .exec(`PRAGMA table_xinfo(${quote(tableName)})`)[0]
+        ?.values.filter((column) => Number(column[6]) === 0)
+        .map((column) => String(column[1])) ?? [];
+    if (!columns.length) continue;
+    const result = database.exec(
+      `SELECT ${columns.map(quote).join(", ")} FROM ${quote(tableName)}`,
+    )[0];
     if (!result) continue;
-    const names = result.columns.map(quote).join(", ");
+    const names = columns.map(quote).join(", ");
     for (const row of result.values)
       lines.push(
         `INSERT INTO ${quote(tableName)} (${names}) VALUES (${row.map(literal).join(", ")});`,
+      );
+  }
+  const hasSequence = database.exec(
+    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'",
+  ).length;
+  if (hasSequence) {
+    lines.push("DELETE FROM sqlite_sequence;");
+    const sequences = database.exec("SELECT name, seq FROM sqlite_sequence")[0];
+    for (const row of sequences?.values ?? [])
+      lines.push(
+        `INSERT INTO sqlite_sequence (name, seq) VALUES (${row.map(literal).join(", ")});`,
       );
   }
   for (const [, type, ddl] of schema)

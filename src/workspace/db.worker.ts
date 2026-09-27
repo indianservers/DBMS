@@ -12,6 +12,11 @@ type Request = {
 };
 const engine = initSqlJs({ locateFile: () => wasmUrl });
 
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
 function quote(name: string) {
   return `"${name.replaceAll('"', '""')}"`;
 }
@@ -74,13 +79,14 @@ self.onmessage = async (event: MessageEvent<Request>) => {
     const results = db.exec(sql);
     const elapsed = Math.round((performance.now() - started) * 10) / 10;
     const result = results.at(-1);
+    const exported = db.export();
     const payload = {
       columns: result?.columns ?? [],
       rows: (result?.values ?? []) as (string | number | null)[][],
       resultSets: results.length,
       affected: db.getRowsModified(),
       elapsed,
-      bytes: db.export(),
+      bytes: bytes && sameBytes(bytes, exported) ? undefined : exported,
     };
     self.postMessage(payload);
   } catch (error) {

@@ -43,7 +43,28 @@ export type Lesson = {
   visual: VisualKind;
   exampleSql: string;
   exercises: [Exercise, Exercise];
+  deepDive?: {
+    sections: { title: string; body: string }[];
+    lab?: string;
+  };
+  workedExample?: {
+    question: string;
+    steps: [string, string, string];
+    takeaway: string;
+  };
+  mastery?: {
+    sections: [
+      { title: string; body: string },
+      { title: string; body: string },
+    ];
+    misconception: { claim: string; correction: string };
+    challenge: { question: string; answer: string };
+  };
 };
+
+import { engineeringLessons } from "./engineeringCurriculum";
+import { coreDepth, workedExamples } from "./lessonDepth";
+import { lessonMastery } from "./lessonMastery";
 
 const quiz = (
   id: string,
@@ -80,7 +101,7 @@ const sql = (
   ordered,
 });
 
-export const lessons: Lesson[] = [
+const foundationLessons: Lesson[] = [
   {
     id: "fundamentals",
     title: "Database fundamentals",
@@ -1062,6 +1083,17 @@ export const lessons: Lesson[] = [
     ],
   },
 ];
+
+export const lessons: Lesson[] = [
+  ...foundationLessons,
+  ...engineeringLessons,
+].map((lesson) => ({
+  ...lesson,
+  minutes: lesson.minutes + 8,
+  deepDive: lesson.deepDive ?? coreDepth[lesson.id],
+  workedExample: workedExamples[lesson.id],
+  mastery: lessonMastery[lesson.id],
+}));
 
 export const allExercises = lessons.flatMap((lesson) => lesson.exercises);
 export const categories = [

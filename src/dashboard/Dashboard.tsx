@@ -15,8 +15,8 @@ import {
   downloadBytes,
   executeSql,
   getDatabaseBytes,
-  quoteId,
 } from "../workspace/database";
+import { rowCountQueries } from "./summary";
 
 type TableSummary = { name: string; rows: number | null };
 type Summary = { tables: TableSummary[]; relationships: number };
@@ -86,26 +86,15 @@ export default function Dashboard({
           "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
         );
         const names = schema.rows.map(([name]) => String(name));
-        const counts = names.length
-          ? await executeSql(
-              database.name,
-              names
-                .map(
-                  (name, index) =>
-                    `SELECT ${index} AS table_index, COUNT(*) AS row_count FROM ${quoteId(name)}`,
-                )
-                .join(" UNION ALL "),
-            )
-          : null;
+        const rowCounts = new Map<number, number>();
+        for (const query of rowCountQueries(names)) {
+          const counts = await executeSql(database.name, query);
+          for (const [index, count] of counts.rows)
+            rowCounts.set(Number(index), Number(count));
+        }
         const foreignKeys = await executeSql(
           database.name,
           "SELECT COUNT(*) FROM sqlite_master AS m JOIN pragma_foreign_key_list(m.name) AS f WHERE m.type = 'table' AND m.name NOT LIKE 'sqlite_%'",
-        );
-        const rowCounts = new Map(
-          counts?.rows.map(([index, count]) => [
-            Number(index),
-            Number(count),
-          ]) ?? [],
         );
         if (alive)
           setSummary({

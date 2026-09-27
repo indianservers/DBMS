@@ -21,6 +21,7 @@ export type WorkspaceTab = {
   kind: TabKind;
   title: string;
   table?: string;
+  database?: string;
 };
 
 const c = (
