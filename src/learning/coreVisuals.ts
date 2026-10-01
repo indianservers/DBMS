@@ -8,6 +8,46 @@ export type ConceptVisual = {
 // Lesson-specific traces replace the shared three-node diagram wherever the
 // generic metaphor would hide the concept being taught.
 export const coreVisuals: Record<string, ConceptVisual> = {
+  "rdbms-systems": {
+    title: "How a relational engine serves a request",
+    subtitle: "Follow SQL from intent to durable rows",
+    nodes: ["SQL + schema", "Planner + transaction", "Pages + indexes"],
+    steps: [
+      "The query names relations and a result, while the schema declares keys and constraints.",
+      "The planner chooses access paths and the transaction layer protects a consistent view.",
+      "The storage engine reads pages and indexes, then returns rows to the application.",
+    ],
+  },
+  "sql-language-systems": {
+    title: "From declarative SQL to result",
+    subtitle: "Logical clauses and physical execution are distinct",
+    nodes: ["SQL statement", "Logical result", "Physical plan"],
+    steps: [
+      "Write the desired columns, row filters, and grouping in SQL.",
+      "Reason about the result using FROM, WHERE, GROUP BY, HAVING, and SELECT.",
+      "The optimizer may reorder physical work while preserving that result.",
+    ],
+  },
+  "nosql-families": {
+    title: "Choose an access model",
+    subtitle: "Different models favor different query shapes",
+    nodes: ["Access pattern", "Data model", "Consistency rule"],
+    steps: [
+      "List the application's frequent reads, writes, and relationship traversals.",
+      "Compare document, key-value, wide-column, and graph representations.",
+      "Check partitioning, transaction scope, and read consistency before committing.",
+    ],
+  },
+  "realtime-databases": {
+    title: "Keep a live view correct",
+    subtitle: "A snapshot and a change stream must meet",
+    nodes: ["Snapshot", "Change cursor", "Live client"],
+    steps: [
+      "Read an initial consistent snapshot with a known stream position.",
+      "Consume later committed changes, deduplicating retries and preserving scope order.",
+      "On reconnect or a stream gap, resume from a valid cursor or resynchronize.",
+    ],
+  },
   fundamentals: {
     title: "From a question to reliable data",
     subtitle: "Trace what the DBMS contributes",

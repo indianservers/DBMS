@@ -63,6 +63,7 @@ export type Lesson = {
 };
 
 import { engineeringLessons } from "./engineeringCurriculum";
+import { systemsLessons } from "./systemsCurriculum";
 import { coreDepth, workedExamples } from "./lessonDepth";
 import { lessonMastery } from "./lessonMastery";
 
@@ -1087,12 +1088,13 @@ const foundationLessons: Lesson[] = [
 export const lessons: Lesson[] = [
   ...foundationLessons,
   ...engineeringLessons,
+  ...systemsLessons,
 ].map((lesson) => ({
   ...lesson,
   minutes: lesson.minutes + 8,
   deepDive: lesson.deepDive ?? coreDepth[lesson.id],
-  workedExample: workedExamples[lesson.id],
-  mastery: lessonMastery[lesson.id],
+  workedExample: lesson.workedExample ?? workedExamples[lesson.id],
+  mastery: lesson.mastery ?? lessonMastery[lesson.id],
 }));
 
 export const allExercises = lessons.flatMap((lesson) => lesson.exercises);

@@ -15,12 +15,13 @@ export type Table = {
 };
 export type Database = { name: string; description: string; tables: Table[] };
 export type TabKind =
-  "home" | "query" | "schema" | "table" | "learn" | "import";
+  "home" | "query" | "schema" | "table" | "learn" | "terms" | "import";
 export type WorkspaceTab = {
   id: string;
   kind: TabKind;
   title: string;
   table?: string;
+  lessonId?: string;
   database?: string;
 };
 

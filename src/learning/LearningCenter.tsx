@@ -95,12 +95,24 @@ function streak(activity: Progress["activity"]) {
 }
 const levelOrder: Level[] = ["Beginner", "Intermediate", "Advanced"];
 
-export default function LearningCenter() {
+export default function LearningCenter({
+  initialLessonId,
+  openTerms,
+}: {
+  initialLessonId?: string;
+  openTerms: () => void;
+}) {
   const [progress, setProgress] = useState<Progress>(loadProgress);
   const [screen, setScreen] = useState<"dashboard" | "catalog" | "lesson">(
-    "dashboard",
+    initialLessonId && lessons.some((lesson) => lesson.id === initialLessonId)
+      ? "lesson"
+      : "dashboard",
   );
-  const [lessonId, setLessonId] = useState(progress.lastLesson);
+  const [lessonId, setLessonId] = useState(
+    initialLessonId && lessons.some((lesson) => lesson.id === initialLessonId)
+      ? initialLessonId
+      : progress.lastLesson,
+  );
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All topics");
@@ -119,6 +131,18 @@ export default function LearningCenter() {
   const [busy, setBusy] = useState(false);
   const [hintOpen, setHintOpen] = useState(false);
   const [solutionOpen, setSolutionOpen] = useState(false);
+  useEffect(() => {
+    if (
+      initialLessonId &&
+      lessons.some((item) => item.id === initialLessonId)
+    ) {
+      setProgress((current) =>
+        current.lastLesson === initialLessonId
+          ? current
+          : { ...current, lastLesson: initialLessonId },
+      );
+    }
+  }, [initialLessonId]);
   const lesson = lessons.find((l) => l.id === lessonId) ?? lessons[0];
   const exercise = lesson.exercises[exerciseIndex];
   const completion = Math.round(
@@ -286,6 +310,7 @@ export default function LearningCenter() {
           >
             All lessons
           </button>
+          <button onClick={openTerms}>Dictionary · 200 terms</button>
         </div>
       </div>
       {screen === "dashboard" && (

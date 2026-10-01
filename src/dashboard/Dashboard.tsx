@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Activity,
+  ArrowRight,
+  BookOpen,
+  BookText,
   ChevronRight,
   Code2,
   Database,
@@ -18,6 +21,8 @@ import {
 } from "../workspace/database";
 import { rowCountQueries } from "./summary";
 
+const TheoryHome = lazy(() => import("./TheoryHome"));
+
 type TableSummary = { name: string; rows: number | null };
 type Summary = { tables: TableSummary[]; relationships: number };
 
@@ -29,7 +34,12 @@ export default function Dashboard({
 }: {
   database: DbType;
   revision: number;
-  openTab: (kind: TabKind, title: string, table?: string) => void;
+  openTab: (
+    kind: TabKind,
+    title: string,
+    table?: string,
+    lessonId?: string,
+  ) => void;
   notify: (message: string) => void;
 }) {
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -120,15 +130,50 @@ export default function Dashboard({
   );
   return (
     <div className="home-view content-scroll">
-      <div className="eyebrow">
-        <span className="status-dot" /> Browser workspace · Stored on this
-        device
-      </div>
-      <h1>Explore {database.name}</h1>
-      <p className="lead">
-        Query a local database, trace its relationships, or learn concepts with
-        hands-on exercises.
-      </p>
+      <header className="home-hero">
+        <div className="home-hero-copy">
+          <div className="eyebrow">
+            <span className="status-dot" /> BROWSER-ONLY DBMS STUDIO
+          </div>
+          <h1>
+            Understand databases.
+            <br />
+            <span>Then build with them.</span>
+          </h1>
+          <p className="lead">
+            Explore theory through visual lessons, practice SQL on local data,
+            and connect each concept to a working database.
+          </p>
+          <div className="home-hero-actions">
+            <button
+              className="home-hero-primary"
+              onClick={() => openTab("learn", "Learning Center")}
+            >
+              Explore theory <ArrowRight size={16} />
+            </button>
+            <button
+              className="home-hero-secondary"
+              onClick={() => openTab("query", "Query 1")}
+            >
+              Open SQL workspace
+            </button>
+          </div>
+        </div>
+        <div className="home-hero-panel" aria-label="Learning approach">
+          <span>YOUR LEARNING PATH</span>
+          <strong>
+            Read the idea.
+            <br />
+            See it move.
+            <br />
+            Try it yourself.
+          </strong>
+          <div>
+            <BookOpen size={16} /> Theory <ChevronRight size={14} />{" "}
+            Visualization <ChevronRight size={14} /> Practice
+          </div>
+        </div>
+      </header>
       {error && <p role="alert">Unable to inspect this database: {error}</p>}
       <div className="home-stats" aria-label="Live database summary">
         <div>
@@ -166,6 +211,20 @@ export default function Dashboard({
           {backingUp ? "Preparing…" : "Download SQLite backup"}
         </button>
       </div>
+      <Suspense
+        fallback={
+          <div className="theory-home-loading" role="status">
+            Loading theory categories…
+          </div>
+        }
+      >
+        <TheoryHome
+          openLesson={(id) =>
+            openTab("learn", "Learning Center", undefined, id)
+          }
+          openCatalog={() => openTab("learn", "Learning Center")}
+        />
+      </Suspense>
       <div className="section-heading">
         <div>
           <h2>Jump back in</h2>
@@ -173,6 +232,14 @@ export default function Dashboard({
         </div>
       </div>
       <div className="feature-grid">
+        <button onClick={() => openTab("terms", "DBMS Dictionary")}>
+          <span className="feature-icon blue">
+            <BookText />
+          </span>
+          <strong>DBMS dictionary</strong>
+          <small>Search 200 terms across 10 topics</small>
+          <ChevronRight size={17} />
+        </button>
         <button onClick={() => openTab("query", "Query 1")}>
           <span className="feature-icon blue">
             <Code2 />

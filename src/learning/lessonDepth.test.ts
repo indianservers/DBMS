@@ -6,7 +6,7 @@ import { lessonMastery } from "./lessonMastery";
 
 describe("lesson depth", () => {
   it("gives every lesson multi-section theory and a worked example", () => {
-    expect(lessons).toHaveLength(39);
+    expect(lessons).toHaveLength(43);
     expect(Object.keys(coreDepth)).toHaveLength(24);
     expect(Object.keys(workedExamples)).toHaveLength(39);
     expect(Object.keys(lessonMastery)).toHaveLength(39);

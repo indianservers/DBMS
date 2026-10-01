@@ -3,6 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import {
   Activity,
   BookOpen,
+  BookText,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -60,6 +61,7 @@ import Dashboard from "./dashboard/Dashboard";
 import { writeStoredText } from "./storage";
 
 const LearningCenter = lazy(() => import("./learning/LearningCenter"));
+const Glossary = lazy(() => import("./learning/Glossary"));
 
 type RecentQuery = {
   sql: string;
@@ -357,7 +359,12 @@ export default function App() {
   const update = (patch: Partial<AppState>) =>
     setState((s) => ({ ...s, ...patch }));
   const notify = (message: string) => setToast(message);
-  function openTab(kind: TabKind, title: string, table?: string) {
+  function openTab(
+    kind: TabKind,
+    title: string,
+    table?: string,
+    lessonId?: string,
+  ) {
     const reusable = state.tabs.find(
       (t) =>
         t.kind === kind &&
@@ -366,10 +373,18 @@ export default function App() {
         (kind !== "query" || t.title === title),
     );
     if (reusable) {
-      update({
+      setState((current) => ({
+        ...current,
+        tabs:
+          kind === "learn"
+            ? current.tabs.map((tab) =>
+                tab.id === reusable.id ? { ...tab, lessonId } : tab,
+              )
+            : current.tabs,
         activeTab: reusable.id,
-        selected: table ? `table:${table}` : state.selected,
-      });
+        selected:
+          kind === "table" && table ? `table:${table}` : current.selected,
+      }));
       return;
     }
     const id = `${kind}-${Date.now()}-${nextId.current++}`;
@@ -382,11 +397,12 @@ export default function App() {
           kind,
           title,
           table,
+          lessonId: kind === "learn" ? lessonId : undefined,
           database: isDatabaseTab(kind) ? s.database : undefined,
         },
       ],
       activeTab: id,
-      selected: table ? `table:${table}` : s.selected,
+      selected: kind === "table" && table ? `table:${table}` : s.selected,
     }));
     if (kind === "table") setSelectedColumn(null);
   }
@@ -1080,7 +1096,20 @@ export default function App() {
           )}
           {active.kind === "learn" && (
             <Suspense fallback={<div role="status">Loading lessons…</div>}>
-              <LearningCenter />
+              <LearningCenter
+                key={`${active.id}:${active.lessonId ?? "home"}`}
+                initialLessonId={active.lessonId}
+                openTerms={() => openTab("terms", "DBMS Dictionary")}
+              />
+            </Suspense>
+          )}
+          {active.kind === "terms" && (
+            <Suspense fallback={<div role="status">Loading dictionary…</div>}>
+              <Glossary
+                openLesson={(id) =>
+                  openTab("learn", "Learning Center", undefined, id)
+                }
+              />
             </Suspense>
           )}
           {active.kind === "import" && (
@@ -1099,6 +1128,7 @@ export default function App() {
             active.kind !== "home" &&
             active.kind !== "import" &&
             active.kind !== "learn" &&
+            active.kind !== "terms" &&
             active.kind !== "query" &&
             active.kind !== "schema" &&
             active.kind !== "table" && (
@@ -1122,6 +1152,7 @@ export default function App() {
             active.kind !== "home" &&
             active.kind !== "import" &&
             active.kind !== "learn" &&
+            active.kind !== "terms" &&
             active.kind !== "query" &&
             active.kind !== "schema" &&
             active.kind !== "table" && (
@@ -1139,6 +1170,7 @@ export default function App() {
           active.kind !== "home" &&
           active.kind !== "import" &&
           active.kind !== "learn" &&
+          active.kind !== "terms" &&
           active.kind !== "query" &&
           active.kind !== "schema" &&
           active.kind !== "table" && (
@@ -1251,6 +1283,7 @@ function TabIcon({ kind }: { kind: TabKind }) {
     schema: Workflow,
     table: Table2,
     learn: BookOpen,
+    terms: BookText,
     import: Import,
   };
   const C = Icon[kind];
